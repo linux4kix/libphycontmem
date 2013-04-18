@@ -5,11 +5,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <linux/android_pmem.h>
+#include <linux/dma-direction.h>
 
 #include "pmem_helper_lib.h"
 
@@ -25,62 +28,62 @@
 #endif
 
 #if 0
-#define pmem_helper_echo(...)	printf(__VA_ARGS__)
+#define mem_helper_echo(...)	printf(__VA_ARGS__)
 #else
-#define pmem_helper_echo(...)
+#define mem_helper_echo(...)
 #endif
 
-struct pmem_handle_mrvl* pmem_malloc(int size, const char* devname)
+struct mem_handle_mrvl* mem_malloc(int size, const char* devname)
 {
-	struct pmem_handle_mrvl* pmem;
+	struct mem_handle_mrvl* mem;
 	struct pmem_region pr;
 	int rlt = 0;
 
 	LOGI("%s() calling, sz %d, dev %s\n", __FUNCTION__, size, devname != NULL ? devname:"NULL");
 
-	pmem = (struct pmem_handle_mrvl*)malloc( sizeof(struct pmem_handle_mrvl) );
-	if( NULL == pmem ) {
-		pmem_helper_echo("malloc in %s(line %d) fail\n", __FUNCTION__, __LINE__);
+	mem = (struct mem_handle_mrvl*)malloc( sizeof(struct mem_handle_mrvl) );
+	if( NULL == mem ) {
+		mem_helper_echo("malloc in %s(line %d) fail\n", __FUNCTION__, __LINE__);
 		return NULL;
 	}
 
-	memset( pmem, 0, sizeof(struct pmem_handle_mrvl) );
-	pmem->fd = open( devname, O_RDWR );
-	if( pmem->fd < 0 ) {
-		pmem_helper_echo("open %s in %s(line %d) fail, ret fd %d\n", devname != NULL ? devname:"NULL", __FUNCTION__, __LINE__, pmem->fd);
-		goto pmem_malloc_fail0;
+	memset( mem, 0, sizeof(struct mem_handle_mrvl) );
+	mem->fd = open( devname, O_RDWR );
+	if( mem->fd < 0 ) {
+		mem_helper_echo("open %s in %s(line %d) fail, ret fd %d\n", devname != NULL ? devname:"NULL", __FUNCTION__, __LINE__, mem->fd);
+		goto mem_malloc_fail0;
 	}
 
-	pmem->va = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, pmem->fd, 0);
-	if( pmem->va == MAP_FAILED ) {
-		pmem_helper_echo("mmap in %s(line %d) fail, ret %d\n", __FUNCTION__, __LINE__, pmem->va);
-		goto pmem_malloc_fail1;
+	mem->va = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, mem->fd, 0);
+	if( mem->va == MAP_FAILED ) {
+		mem_helper_echo("mmap in %s(line %d) fail, ret %d\n", __FUNCTION__, __LINE__, mem->va);
+		goto mem_malloc_fail1;
 	}
-	pmem->size = size;
+	mem->size = size;
 
-	rlt = ioctl( pmem->fd, PMEM_GET_PHYS, (unsigned long)&pr);
+	rlt = ioctl( mem->fd, PMEM_GET_PHYS, (unsigned long)&pr);
 	if( rlt < 0 ) {
-		pmem_helper_echo("PMEM_GET_PHYS in %s(line %d) fail, ret %d\n", __FUNCTION__, __LINE__, rlt);
-		goto pmem_malloc_fail2;
+		mem_helper_echo("PMEM_GET_PHYS in %s(line %d) fail, ret %d\n", __FUNCTION__, __LINE__, rlt);
+		goto mem_malloc_fail2;
 	}
 
-	pmem->pa = (void*)pr.offset;
+	mem->pa = (void*)pr.offset;
 
-	LOGI("%s() ok, sz %d, dev %s, va 0x%08x, pa 0x%08x, fd %d, handle 0x%08x\n", __FUNCTION__, size, devname != NULL ? devname:"NULL", (unsigned int)pmem->va, (unsigned int)pmem->pa, pmem->fd, (unsigned int)pmem);
+	LOGI("%s() ok, sz %d, dev %s, va 0x%08x, pa 0x%08x, fd %d, handle 0x%08x\n", __FUNCTION__, size, devname != NULL ? devname:"NULL", (unsigned int)mem->va, (unsigned int)mem->pa, mem->fd, (unsigned int)mem);
 
-	return pmem;
+	return mem;
 
-pmem_malloc_fail2:
-	munmap( pmem->va, pmem->size );
-pmem_malloc_fail1:
-	close( pmem->fd );
-pmem_malloc_fail0:
-	free( pmem );
+mem_malloc_fail2:
+	munmap( mem->va, mem->size );
+mem_malloc_fail1:
+	close( mem->fd );
+mem_malloc_fail0:
+	free( mem );
 	LOGI("%s() fail, sz %d, dev %s\n", __FUNCTION__, size, devname != NULL ? devname:"NULL");
 	return NULL;
 }
 
-int pmem_free(struct pmem_handle_mrvl* handle)
+int mem_free(struct mem_handle_mrvl* handle)
 {
 	LOGI("%s() calling, handle 0x%08x\n", __FUNCTION__, (unsigned int)handle);
 	if(handle == NULL) {
@@ -96,34 +99,34 @@ int pmem_free(struct pmem_handle_mrvl* handle)
 	return 0;
 }
 
-void pmem_flush_cache(int pmem_fd, unsigned long offset, unsigned long size, int dir)
+void mem_flush_cache(int mem_fd, unsigned long offset, unsigned long size, int dir)
 {
 	struct pmem_sync_region psr;
 	int ret;
-	if(pmem_fd < 0)
+	if(mem_fd < 0)
 		return;
 	psr.region.offset = offset;
 	psr.region.len = size;
 
-	if(dir == PMEM_FLUSH_BIDIRECTION) {
+	if(dir == MEM_FLUSH_BIDIRECTION) {
 		psr.dir = DMA_BIDIRECTIONAL;
-	}else if(dir == PMEM_FLUSH_TO_DEVICE) {
+	}else if(dir == MEM_FLUSH_TO_DEVICE) {
 		psr.dir = DMA_TO_DEVICE;
-	}else if(dir == PMEM_FLUSH_FROM_DEVICE) {
+	}else if(dir == MEM_FLUSH_FROM_DEVICE) {
 		psr.dir = DMA_FROM_DEVICE;
 	}else{
 		return;
 	}
 
 	if (psr.dir == DMA_BIDIRECTIONAL) {
-		ret = ioctl(pmem_fd, PMEM_CACHE_FLUSH, (unsigned long)&psr.region);
+		ret = ioctl(mem_fd, PMEM_CACHE_FLUSH, (unsigned long)&psr.region);
 		if( ret < 0 ) {
-			pmem_helper_echo("PMEM_CACHE_FLUSH in %s(line %d) fail, ret %d\n", __FUNCTION__, __LINE__, ret);
+			mem_helper_echo("PMEM_CACHE_FLUSH in %s(line %d) fail, ret %d\n", __FUNCTION__, __LINE__, ret);
 		}
 	} else {
-		ret = ioctl(pmem_fd, PMEM_MAP_REGION, (unsigned long)&psr);
+		ret = ioctl(mem_fd, PMEM_MAP_REGION, (unsigned long)&psr);
 		if( ret < 0 ) {
-			pmem_helper_echo("PMEM_CACHE_FLUSH in %s(line %d) fail, ret %d\n", __FUNCTION__, __LINE__, ret);
+			mem_helper_echo("PMEM_CACHE_FLUSH in %s(line %d) fail, ret %d\n", __FUNCTION__, __LINE__, ret);
 		}
 	}
 }

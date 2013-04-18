@@ -1,4 +1,4 @@
-CROSS_COMPILE?=arm-marvell-linux-gnueabi-
+#CROSS_COMPILE?=arm-marvell-linux-gnueabi-
 
 CC=$(CROSS_COMPILE)gcc
 CXX=$(CROSS_COMPILE)g++
@@ -6,10 +6,17 @@ AR=$(CROSS_COMPILE)ar
 AS=$(CROSS_COMPILE)as
 LD=$(CROSS_COMPILE)ld
 
-INC_PMEM_HELPER_HEADER=-I../pmemhelper/
-CFLAGS = -I../pmemhelper/ -L../pmemhelper/
-LIBPMEM = -lpmemhelper
-LDLIBS += $(LIBPMEM) -lrt
+ifdef PMEM
+INC_MEM_HELPER_HEADER=-I../pmemhelper/
+CFLAGS += -I../pmemhelper/ -L../pmemhelper/
+LIBMEM = -lpmemhelper
+else
+INC_MEM_HELPER_HEADER=-I../ionhelper/
+CFLAGS += -g -I../ionhelper/ -L../ionhelper/
+LIBMEM = -lionhelper
+endif
+
+LDLIBS += $(LIBMEM) -lrt
 
 .PHONY : all clean
 all:clean libphycontmem.so libphycontmem.a
@@ -21,7 +28,7 @@ libphycontmem.a: phycontmem.o
 	$(AR) -r $@  $^
 
 phycontmem.o: phycontmem.c
-	$(CC) -O3 -Wall -fPIC $(INC_PMEM_HELPER_HEADER) -c -o $@ $^
+	$(CC) -g -Wall -fPIC $(INC_MEM_HELPER_HEADER) -c -o $@ $^
 
 
 clean:

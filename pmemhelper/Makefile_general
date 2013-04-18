@@ -1,4 +1,4 @@
-CROSS_COMPILE?=arm-marvell-linux-gnueabi-
+#CROSS_COMPILE?=arm-marvell-linux-gnueabi-
 
 CC=$(CROSS_COMPILE)gcc
 CXX=$(CROSS_COMPILE)g++
@@ -6,8 +6,12 @@ AR=$(CROSS_COMPILE)ar
 AS=$(CROSS_COMPILE)as
 LD=$(CROSS_COMPILE)ld
 
+ifdef ANDROID
 INC_PMEM_ANDROID_HEADER?=-I../../bionic/libc/kernel/common/ \
  -I../../bionic/libc/kernel/arch-arm/
+else
+INC_PMEM_ANDROID_HEADER?=-I. -I/usr/include
+endif
 
 .PHONY : all clean
 all:clean libpmemhelper.so libpmemhelper.a

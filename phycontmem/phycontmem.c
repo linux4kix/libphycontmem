@@ -3,13 +3,18 @@
  * All Rights Reserved
  */
 
+#include <stdlib.h>
 #include <pthread.h>
+#ifdef PMEM
 #include "pmem_helper_lib.h"
+#else
+#include "ion_helper_lib.h"
+#endif
 #include "phycontmem.h"
 
 //for bmm like
 typedef struct phycontmem_node{
-	struct pmem_handle_mrvl* pmem;
+	struct mem_handle_mrvl* mem;
 	struct phycontmem_node* next;
 }PHYCONTMEM_NODE;
 
@@ -30,7 +35,7 @@ static PHYCONTMEM_NODE* list_find_by_va_range(void* VA)
 
 	pnode = g_phycontmemlist;
 	while(pnode) {
-		if((unsigned int)VA >= (unsigned int)pnode->pmem->va && (unsigned int)VA < (unsigned int)pnode->pmem->va + pnode->pmem->size) {
+		if((unsigned int)VA >= (unsigned int)pnode->mem->va && (unsigned int)VA < (unsigned int)pnode->mem->va + pnode->mem->size) {
 			return pnode;
 		}
 		pnode = pnode->next;
@@ -45,7 +50,7 @@ static PHYCONTMEM_NODE* list_find_by_pa_range(unsigned int PA)
 
 	pnode = g_phycontmemlist;
 	while(pnode) {
-		if(PA >= (unsigned int)pnode->pmem->pa && PA < (unsigned int)pnode->pmem->pa + (unsigned int)pnode->pmem->size) {
+		if(PA >= (unsigned int)pnode->mem->pa && PA < (unsigned int)pnode->mem->pa + (unsigned int)pnode->mem->size) {
 			return pnode;
 		}
 		pnode = pnode->next;
@@ -60,7 +65,7 @@ static PHYCONTMEM_NODE* list_remove_by_va(void* VA)
 
 	pnode = g_phycontmemlist;
 	while(pnode) {
-		if(VA == pnode->pmem->va) {
+		if(VA == pnode->mem->va) {
 			break;
 		}
 		pPrev = pnode;
@@ -81,14 +86,13 @@ void* phy_cont_malloc(int size, int attr)
 	PHYCONTMEM_NODE* pnode;
 	void* VA = NULL;
 	const char* devname;
-	int ret;
 
 	if(attr == PHY_CONT_MEM_ATTR_DEFAULT) {
-		devname = MARVELL_PMEMDEV_NAME_CACHEBUFFERED;
+		devname = MARVELL_MEMDEV_NAME_CACHEBUFFERED;
 	}else if (attr == PHY_CONT_MEM_ATTR_NONCACHED) {
-		devname = MARVELL_PMEMDEV_NAME_NONCACHED;
+		devname = MARVELL_MEMDEV_NAME_NONCACHED;
 	}else if (attr == PHY_CONT_MEM_ATTR_WC) {
-		devname = MARVELL_PMEMDEV_NAME_WC;
+		devname = MARVELL_MEMDEV_NAME_WC;
 	}else{
 		return NULL;
 	}
@@ -98,12 +102,12 @@ void* phy_cont_malloc(int size, int attr)
 		return NULL;
 	}
 
-	pnode->pmem = pmem_malloc(size, devname);
-	if(pnode->pmem == NULL) {
+	pnode->mem = mem_malloc(size, devname);
+	if(pnode->mem == NULL) {
 		free(pnode);
 		return NULL;
 	}
-	VA = pnode->pmem->va;
+	VA = pnode->mem->va;
 
 	pthread_mutex_lock(&g_phycontmemlist_mutex);
 	list_add_node(pnode);
@@ -119,7 +123,7 @@ void phy_cont_free(void* VA)
 	pnode = list_remove_by_va(VA);
 	pthread_mutex_unlock(&g_phycontmemlist_mutex);
 	if(pnode) {
-		pmem_free(pnode->pmem);
+		mem_free(pnode->mem);
 		free(pnode);
 	}
 	return;
@@ -132,7 +136,7 @@ unsigned int phy_cont_getpa(void* VA)
 	pthread_mutex_lock(&g_phycontmemlist_mutex);
 	pnode = list_find_by_va_range(VA);
 	if(pnode) {
-		PA = ((unsigned int)VA - (unsigned int)pnode->pmem->va) + (unsigned int)pnode->pmem->pa;
+		PA = ((unsigned int)VA - (unsigned int)pnode->mem->va) + (unsigned int)pnode->mem->pa;
 	}
 	pthread_mutex_unlock(&g_phycontmemlist_mutex);
 	return PA;
@@ -146,7 +150,7 @@ void* phy_cont_getva(unsigned int PA)
 	pthread_mutex_lock(&g_phycontmemlist_mutex);
 	pnode = list_find_by_pa_range(PA);
 	if(pnode) {
-		VA = (void*)((PA-(unsigned int)pnode->pmem->pa) + (unsigned int)pnode->pmem->va);
+		VA = (void*)((PA-(unsigned int)pnode->mem->pa) + (unsigned int)pnode->mem->va);
 	}
 	pthread_mutex_unlock(&g_phycontmemlist_mutex);
 	return VA;
@@ -155,13 +159,13 @@ void* phy_cont_getva(unsigned int PA)
 void phy_cont_flush_cache(void* VA, int dir)
 {
 	PHYCONTMEM_NODE* pnode;
-	int pmem_dir;
+	int mem_dir;
 	if(dir == PHY_CONT_MEM_FLUSH_BIDIRECTION) {
-		pmem_dir = PMEM_FLUSH_BIDIRECTION;
+		mem_dir = MEM_FLUSH_BIDIRECTION;
 	}else if(dir == PHY_CONT_MEM_FLUSH_TO_DEVICE) {
-		pmem_dir = PMEM_FLUSH_TO_DEVICE;
+		mem_dir = MEM_FLUSH_TO_DEVICE;
 	}else if(dir == PHY_CONT_MEM_FLUSH_FROM_DEVICE) {
-		pmem_dir = PMEM_FLUSH_FROM_DEVICE;
+		mem_dir = MEM_FLUSH_FROM_DEVICE;
 	}else{
 		return;
 	}
@@ -172,7 +176,7 @@ void phy_cont_flush_cache(void* VA, int dir)
 		pthread_mutex_unlock(&g_phycontmemlist_mutex);
 		return;
 	}
-	pmem_flush_cache(pnode->pmem->fd, 0, pnode->pmem->size, pmem_dir);
+	mem_flush_cache(pnode->mem->fd, 0, pnode->mem->size, mem_dir);
 	pthread_mutex_unlock(&g_phycontmemlist_mutex);
 	return;
 }
@@ -180,13 +184,13 @@ void phy_cont_flush_cache(void* VA, int dir)
 void phy_cont_flush_cache_range(void* VA, unsigned long size, int dir)
 {
 	PHYCONTMEM_NODE* pnode;
-	int pmem_dir;
+	int mem_dir;
 	if(dir == PHY_CONT_MEM_FLUSH_BIDIRECTION) {
-		pmem_dir = PMEM_FLUSH_BIDIRECTION;
+		mem_dir = MEM_FLUSH_BIDIRECTION;
 	}else if(dir == PHY_CONT_MEM_FLUSH_TO_DEVICE) {
-		pmem_dir = PMEM_FLUSH_TO_DEVICE;
+		mem_dir = MEM_FLUSH_TO_DEVICE;
 	}else if(dir == PHY_CONT_MEM_FLUSH_FROM_DEVICE) {
-		pmem_dir = PMEM_FLUSH_FROM_DEVICE;
+		mem_dir = MEM_FLUSH_FROM_DEVICE;
 	}else{
 		return;
 	}
@@ -198,7 +202,7 @@ void phy_cont_flush_cache_range(void* VA, unsigned long size, int dir)
 		pthread_mutex_unlock(&g_phycontmemlist_mutex);
 		return;
 	}
-	pmem_flush_cache(pnode->pmem->fd, ((unsigned long)VA-(unsigned long)pnode->pmem->va), size, pmem_dir);
+	mem_flush_cache(pnode->mem->fd, ((unsigned long)VA-(unsigned long)pnode->mem->va), size, mem_dir);
 	pthread_mutex_unlock(&g_phycontmemlist_mutex);
 	return;
 }
