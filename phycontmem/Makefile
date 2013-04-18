@@ -12,8 +12,7 @@ CFLAGS += -I../pmemhelper/ -L../pmemhelper/
 LIBMEM = -lpmemhelper
 else
 INC_MEM_HELPER_HEADER=-I../ionhelper/
-CFLAGS += -g -I../ionhelper/ -L../ionhelper/
-LIBMEM = -lionhelper
+CFLAGS += -I../ionhelper/
 endif
 
 LDLIBS += $(LIBMEM) -lrt
@@ -24,7 +23,7 @@ dynamic: libphycontmem.so.1.0 libphycontmem.so.1 libphycontmem.so
 
 all:clean dynamic libphycontmem.a
 
-libphycontmem.so.1.0: phycontmem.o
+libphycontmem.so.1.0: phycontmem.o ../ionhelper/ion_helper_lib.o
 	$(CC) $(CFLAGS) $(LDLIBS) -s -shared -Wl,-soname,libphycontmem.so.1 -o $@ $^
 
 libphycontmem.so.1: libphycontmem.so.1.0
@@ -36,7 +35,7 @@ libphycontmem.so: libphycontmem.so.1
 libphycontmem.a: phycontmem.o
 	$(AR) -r $@  $^
 
-phycontmem.o: phycontmem.c
+%.o: %.c
 	$(CC) -g -Wall -fPIC $(INC_MEM_HELPER_HEADER) -c -o $@ $^
 
 
