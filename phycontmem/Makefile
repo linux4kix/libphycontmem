@@ -7,12 +7,10 @@ AS=$(CROSS_COMPILE)as
 LD=$(CROSS_COMPILE)ld
 
 ifdef PMEM
-INC_MEM_HELPER_HEADER=-I../pmemhelper/
-CFLAGS += -I../pmemhelper/ -L../pmemhelper/
+MEM_CFLAGS += -I../pmemhelper/ -L../pmemhelper/
 LIBMEM = -lpmemhelper
 else
-INC_MEM_HELPER_HEADER=-I../ionhelper/
-CFLAGS += -I../ionhelper/
+MEM_CFLAGS += -I../ionhelper/
 endif
 
 LDLIBS += $(LIBMEM) -lrt
@@ -36,7 +34,7 @@ libphycontmem.a: phycontmem.o
 	$(AR) -r $@  $^
 
 %.o: %.c
-	$(CC) -g -Wall -fPIC $(INC_MEM_HELPER_HEADER) -c -o $@ $^
+	$(CC) $(CFLAGS) $(MEM_CFLAGS) -fPIC -c -o $@ $^
 
 
 clean:
