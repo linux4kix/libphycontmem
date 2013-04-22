@@ -12,27 +12,13 @@ extern "C"
 {
 #endif
 
-struct mem_handle_mrvl
-{
-	int fd;
-	unsigned int size;
-	void* va;
-	void* pa;
-};
-
-typedef struct mem_handle_mrvl MEM_HANDLE_MRVL;
-
 #define MARVELL_MEMDEV_NAME_CACHEBUFFERED	"/dev/pmem"	//cacheable & buffered
 #define MARVELL_MEMDEV_NAME_NONCACHED		"/dev/pmem_adsp"	//non-cacheable & non-buffered
 #define MARVELL_MEMDEV_NAME_WC		"/dev/pmem_wc"		//non-cacheable & buffered
 
-#define MEM_FLUSH_BIDIRECTION		0
-#define MEM_FLUSH_TO_DEVICE		1
-#define MEM_FLUSH_FROM_DEVICE		2
-
-struct mem_handle_mrvl* mem_malloc(int size, const char* devname);	//return handle. if NULL, fail
-int mem_free(struct mem_handle_mrvl* handle);		//return 0 is ok, other value fail
-void mem_flush_cache(int mem_fd, unsigned long offset, unsigned long size, int dir);	//dir should be PMEM_FLUSH_BIDIRECTION, PMEM_FLUSH_TO_DEVICE or PMEM_FLUSH_FROM_DEVICE
+struct mem_handle_mrvl* pmem_malloc(int size);	//return handle. if NULL, fail
+int pmem_free(struct mem_handle_mrvl* handle);		//return 0 is ok, other value fail
+void pmem_flush_cache(int mem_fd, unsigned long offset, unsigned long size, int dir);	//dir should be PMEM_FLUSH_BIDIRECTION, PMEM_FLUSH_TO_DEVICE or PMEM_FLUSH_FROM_DEVICE
 
 
 #ifdef __cplusplus

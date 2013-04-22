@@ -16,6 +16,7 @@
 #include <linux/ion.h>
 #include <linux/mmp_ion.h>
 
+#include "phycontmem_internal.h"
 #include "ion_helper_lib.h"
 
 #ifdef ANDROID
@@ -77,7 +78,7 @@ static int ion_alloc(int fd, size_t len, size_t align, unsigned int heap_mask,
         return ret;
 }
 
-static int ion_free(int fd, struct ion_handle *handle)
+static int _ion_free(int fd, struct ion_handle *handle)
 {
         struct ion_handle_data data = {
                 .handle = handle,
@@ -134,7 +135,7 @@ static int ion_alloc_fd(int fd, size_t len, size_t align, unsigned int heap_mask
 	if (ret < 0)
 		return ret;
 	ret = ion_share(fd, handle, handle_fd);
-	ion_free(fd, handle);
+	_ion_free(fd, handle);
 	return ret;
 }
 
@@ -159,14 +160,14 @@ static int ion_sync_fd(int fd, int handle_fd)
     return ion_ioctl(fd, ION_IOC_SYNC, &data);
 }
 
-struct mem_handle_mrvl* mem_malloc(int size, const char* devname)
+struct mem_handle_mrvl* ion_malloc(int size)
 {
 	struct mem_handle_mrvl* mem;
 	struct ion_custom_data data;
 	struct mmp_ion_cont_alloc_data alloc_data;
 	int rlt = 0;
 
-	LOGI("%s() calling, sz %d, dev %s\n", __FUNCTION__, size, devname != NULL ? devname:"NULL");
+	LOGI("%s() calling, sz %d\n", __FUNCTION__, size);
 
 	mem = (struct mem_handle_mrvl*)malloc( sizeof(struct mem_handle_mrvl) );
 	if( NULL == mem ) {
@@ -177,7 +178,7 @@ struct mem_handle_mrvl* mem_malloc(int size, const char* devname)
 	memset( mem, 0, sizeof(struct mem_handle_mrvl) );
 	mem->fd = ion_open();
 	if( mem->fd < 0 ) {
-		mem_helper_echo("open %s in %s(line %d) fail, ret fd %d\n", devname != NULL ? devname:"NULL", __FUNCTION__, __LINE__, mem->fd);
+		mem_helper_echo("open in %s(line %d) fail, ret fd %d\n", __FUNCTION__, __LINE__, mem->fd);
 		goto mem_malloc_fail0;
 	}
 
@@ -209,7 +210,7 @@ struct mem_handle_mrvl* mem_malloc(int size, const char* devname)
 
 	mem->pa = (void *)alloc_data.offset;
 
-	LOGI("%s() ok, sz %d, dev %s, va 0x%08x, pa 0x%08x, fd %d, handle 0x%08x\n", __FUNCTION__, size, devname != NULL ? devname:"NULL", (unsigned int)mem->va, (unsigned int)mem->pa, mem->fd, (unsigned int)mem);
+	LOGI("%s() ok, sz %d, va 0x%08x, pa 0x%08x, fd %d, handle 0x%08x\n", __FUNCTION__, size, (unsigned int)mem->va, (unsigned int)mem->pa, mem->fd, (unsigned int)mem);
 
 	return mem;
 
@@ -217,16 +218,16 @@ mem_malloc_fail3:
 	munmap( mem->va, mem->size );
 mem_malloc_fail2:
 	close(mem->map_fd);
-	ion_free(mem->fd, mem->handle);
+	_ion_free(mem->fd, mem->handle);
 mem_malloc_fail1:
 	ion_close( mem->fd );
 mem_malloc_fail0:
 	free( mem );
-	LOGI("%s() fail, sz %d, dev %s\n", __FUNCTION__, size, devname != NULL ? devname:"NULL");
+	LOGI("%s() fail, sz %d\n", __FUNCTION__, size);
 	return NULL;
 }
 
-int mem_free(struct mem_handle_mrvl* handle)
+int ion_free(struct mem_handle_mrvl* handle)
 {
 	LOGI("%s() calling, handle 0x%08x\n", __FUNCTION__, (unsigned int)handle);
 	if(handle == NULL) {
@@ -237,14 +238,14 @@ int mem_free(struct mem_handle_mrvl* handle)
 	}
 	munmap( handle->va, handle->size );
 	close(handle->map_fd);
-	ion_free(handle->fd, handle->handle);
+	_ion_free(handle->fd, handle->handle);
 	ion_close(handle->fd);
 	free(handle);
 	LOGI("%s() ok, handle 0x%08x\n", __FUNCTION__, (unsigned int)handle);
 	return 0;
 }
 
-void mem_flush_cache(int mem_fd, unsigned long offset, unsigned long size, int dir)
+void ion_flush_cache(int mem_fd, unsigned long offset, unsigned long size, int dir)
 {
 }
 

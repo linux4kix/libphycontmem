@@ -22,15 +22,15 @@ libphycontmem-devel
 
 
 %build
-make -C phycontmem %{?_smp_mflags} CFLAGS="%{optflags}"
+make %{?_smp_mflags} CFLAGS="%{optflags}"
 
 
 %install
 mkdir -p $RPM_BUILD_ROOT/%{_libdir}
-cp -a phycontmem/libphycontmem.so* $RPM_BUILD_ROOT/%{_libdir}
+cp -a libphycontmem.so* $RPM_BUILD_ROOT/%{_libdir}
 
 mkdir -p $RPM_BUILD_ROOT/%{_includedir}
-install -m 0644 phycontmem/phycontmem.h $RPM_BUILD_ROOT/%{_includedir}
+install -m 0644 phycontmem.h $RPM_BUILD_ROOT/%{_includedir}
 
 %post -p /sbin/ldconfig
 %postun -p /sbin/ldconfig

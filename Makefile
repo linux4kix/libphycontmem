@@ -16,7 +16,7 @@ dynamic: libphycontmem.so.1.0 libphycontmem.so.1 libphycontmem.so
 
 all:clean dynamic libphycontmem.a
 
-libphycontmem.so.1.0: phycontmem.o ion_helper_lib.o
+libphycontmem.so.1.0: phycontmem.o ion_helper_lib.o pmem_helper_lib.o
 	$(CC) $(CFLAGS) $(LDLIBS) -s -shared -Wl,-soname,libphycontmem.so.1 -o $@ $^
 
 libphycontmem.so.1: libphycontmem.so.1.0

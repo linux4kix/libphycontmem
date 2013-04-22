@@ -5,12 +5,31 @@
 
 #include <stdlib.h>
 #include <pthread.h>
-#ifdef PMEM
+#include <unistd.h>
+#include "phycontmem_internal.h"
 #include "pmem_helper_lib.h"
-#else
 #include "ion_helper_lib.h"
-#endif
 #include "phycontmem.h"
+
+struct helper_ops {
+	struct mem_handle_mrvl *(*malloc)(int size);
+	int (*free)(struct mem_handle_mrvl* handle);
+	void (*flush_cache)(int mem_fd, unsigned long offset, unsigned long size, int dir);
+};
+
+static const struct helper_ops ion_helper = {
+	ion_malloc,
+	ion_free,
+	ion_flush_cache,
+};
+
+static const struct helper_ops pmem_helper = {
+	pmem_malloc,
+	pmem_free,
+	pmem_flush_cache,
+};
+
+static const struct helper_ops *helper = NULL;
 
 //for bmm like
 typedef struct phycontmem_node{
@@ -21,6 +40,14 @@ typedef struct phycontmem_node{
 static PHYCONTMEM_NODE* g_phycontmemlist = NULL;
 
 static pthread_mutex_t g_phycontmemlist_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static void setup_helper(void)
+{
+	if (access("/dev/ion", R_OK | W_OK) == 0)
+		helper = &ion_helper;
+	else
+		helper = &pmem_helper;
+}
 
 static __inline void list_add_node(PHYCONTMEM_NODE* pnode)
 {
@@ -87,6 +114,9 @@ void* phy_cont_malloc(int size, int attr)
 	void* VA = NULL;
 	const char* devname;
 
+	if (!helper)
+		setup_helper();
+
 	if(attr == PHY_CONT_MEM_ATTR_DEFAULT) {
 		devname = MARVELL_MEMDEV_NAME_CACHEBUFFERED;
 	}else if (attr == PHY_CONT_MEM_ATTR_NONCACHED) {
@@ -102,7 +132,7 @@ void* phy_cont_malloc(int size, int attr)
 		return NULL;
 	}
 
-	pnode->mem = mem_malloc(size, devname);
+	pnode->mem = helper->malloc(size);
 	if(pnode->mem == NULL) {
 		free(pnode);
 		return NULL;
@@ -123,7 +153,7 @@ void phy_cont_free(void* VA)
 	pnode = list_remove_by_va(VA);
 	pthread_mutex_unlock(&g_phycontmemlist_mutex);
 	if(pnode) {
-		mem_free(pnode->mem);
+		helper->free(pnode->mem);
 		free(pnode);
 	}
 	return;
@@ -176,7 +206,7 @@ void phy_cont_flush_cache(void* VA, int dir)
 		pthread_mutex_unlock(&g_phycontmemlist_mutex);
 		return;
 	}
-	mem_flush_cache(pnode->mem->fd, 0, pnode->mem->size, mem_dir);
+	helper->flush_cache(pnode->mem->fd, 0, pnode->mem->size, mem_dir);
 	pthread_mutex_unlock(&g_phycontmemlist_mutex);
 	return;
 }
@@ -202,7 +232,7 @@ void phy_cont_flush_cache_range(void* VA, unsigned long size, int dir)
 		pthread_mutex_unlock(&g_phycontmemlist_mutex);
 		return;
 	}
-	mem_flush_cache(pnode->mem->fd, ((unsigned long)VA-(unsigned long)pnode->mem->va), size, mem_dir);
+	helper->flush_cache(pnode->mem->fd, ((unsigned long)VA-(unsigned long)pnode->mem->va), size, mem_dir);
 	pthread_mutex_unlock(&g_phycontmemlist_mutex);
 	return;
 }

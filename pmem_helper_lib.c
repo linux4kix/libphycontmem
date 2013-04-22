@@ -14,6 +14,7 @@
 #include <linux/android_pmem.h>
 #include <linux/dma-direction.h>
 
+#include "phycontmem_internal.h"
 #include "pmem_helper_lib.h"
 
 #ifdef ANDROID
@@ -33,13 +34,13 @@
 #define mem_helper_echo(...)
 #endif
 
-struct mem_handle_mrvl* mem_malloc(int size, const char* devname)
+struct mem_handle_mrvl* pmem_malloc(int size)
 {
 	struct mem_handle_mrvl* mem;
 	struct pmem_region pr;
 	int rlt = 0;
 
-	LOGI("%s() calling, sz %d, dev %s\n", __FUNCTION__, size, devname != NULL ? devname:"NULL");
+	LOGI("%s() calling, sz %d\n", __FUNCTION__, size);
 
 	mem = (struct mem_handle_mrvl*)malloc( sizeof(struct mem_handle_mrvl) );
 	if( NULL == mem ) {
@@ -48,9 +49,9 @@ struct mem_handle_mrvl* mem_malloc(int size, const char* devname)
 	}
 
 	memset( mem, 0, sizeof(struct mem_handle_mrvl) );
-	mem->fd = open( devname, O_RDWR );
+	mem->fd = open( MARVELL_MEMDEV_NAME_NONCACHED, O_RDWR );
 	if( mem->fd < 0 ) {
-		mem_helper_echo("open %s in %s(line %d) fail, ret fd %d\n", devname != NULL ? devname:"NULL", __FUNCTION__, __LINE__, mem->fd);
+		mem_helper_echo("open in %s(line %d) fail, ret fd %d\n", __FUNCTION__, __LINE__, mem->fd);
 		goto mem_malloc_fail0;
 	}
 
@@ -69,7 +70,7 @@ struct mem_handle_mrvl* mem_malloc(int size, const char* devname)
 
 	mem->pa = (void*)pr.offset;
 
-	LOGI("%s() ok, sz %d, dev %s, va 0x%08x, pa 0x%08x, fd %d, handle 0x%08x\n", __FUNCTION__, size, devname != NULL ? devname:"NULL", (unsigned int)mem->va, (unsigned int)mem->pa, mem->fd, (unsigned int)mem);
+	LOGI("%s() ok, sz %d, va 0x%08x, pa 0x%08x, fd %d, handle 0x%08x\n", __FUNCTION__, size, (unsigned int)mem->va, (unsigned int)mem->pa, mem->fd, (unsigned int)mem);
 
 	return mem;
 
@@ -79,11 +80,11 @@ mem_malloc_fail1:
 	close( mem->fd );
 mem_malloc_fail0:
 	free( mem );
-	LOGI("%s() fail, sz %d, dev %s\n", __FUNCTION__, size, devname != NULL ? devname:"NULL");
+	LOGI("%s() fail, sz %d\n", __FUNCTION__, size);
 	return NULL;
 }
 
-int mem_free(struct mem_handle_mrvl* handle)
+int pmem_free(struct mem_handle_mrvl* handle)
 {
 	LOGI("%s() calling, handle 0x%08x\n", __FUNCTION__, (unsigned int)handle);
 	if(handle == NULL) {
@@ -99,7 +100,7 @@ int mem_free(struct mem_handle_mrvl* handle)
 	return 0;
 }
 
-void mem_flush_cache(int mem_fd, unsigned long offset, unsigned long size, int dir)
+void pmem_flush_cache(int mem_fd, unsigned long offset, unsigned long size, int dir)
 {
 	struct pmem_sync_region psr;
 	int ret;
