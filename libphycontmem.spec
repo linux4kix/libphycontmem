@@ -27,7 +27,7 @@ make %{?_smp_mflags} CFLAGS="%{optflags}"
 
 %install
 mkdir -p $RPM_BUILD_ROOT/%{_libdir}
-cp -a libphycontmem.so* $RPM_BUILD_ROOT/%{_libdir}
+cp -a libphycontmem.so $RPM_BUILD_ROOT/%{_libdir}
 
 mkdir -p $RPM_BUILD_ROOT/%{_includedir}
 install -m 0644 phycontmem.h $RPM_BUILD_ROOT/%{_includedir}
@@ -37,10 +37,9 @@ install -m 0644 phycontmem.h $RPM_BUILD_ROOT/%{_includedir}
 
 
 %files
-%{_libdir}/lib*.so.*
+%{_libdir}/*.so
 
 %files devel
-%{_libdir}/lib*.so
 %{_includedir}/*
 
 
