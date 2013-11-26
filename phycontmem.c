@@ -12,8 +12,8 @@
 #include "phycontmem.h"
 
 struct helper_ops {
-	struct mem_handle_mrvl *(*malloc)(int size);
-	int (*free)(struct mem_handle_mrvl* handle);
+	struct mem_handle_phycontmem *(*malloc)(int size);
+	int (*free)(struct mem_handle_phycontmem* handle);
 	void (*flush_cache)(int mem_fd, unsigned long offset, unsigned long size, int dir);
 };
 
@@ -33,7 +33,7 @@ static const struct helper_ops *helper = NULL;
 
 //for bmm like
 typedef struct phycontmem_node{
-	struct mem_handle_mrvl* mem;
+	struct mem_handle_phycontmem* mem;
 	struct phycontmem_node* next;
 }PHYCONTMEM_NODE;
 

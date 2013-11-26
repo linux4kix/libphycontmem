@@ -14,7 +14,7 @@
 #include <fcntl.h>
 #include <linux/dma-direction.h>
 #include <linux/ion.h>
-#include <linux/mmp_ion.h>
+#include <linux/insecure_uapi_ion.h>
 
 #include "phycontmem_internal.h"
 #include "ion_helper_lib.h"
@@ -61,7 +61,7 @@ static int ion_ioctl(int fd, int req, void *arg)
 }
 
 static int ion_alloc(int fd, size_t len, size_t align, unsigned int heap_mask,
-	      unsigned int flags, struct ion_handle **handle)
+	      unsigned int flags, int *handle)
 {
         int ret;
         struct ion_allocation_data data = {
@@ -78,7 +78,7 @@ static int ion_alloc(int fd, size_t len, size_t align, unsigned int heap_mask,
         return ret;
 }
 
-static int _ion_free(int fd, struct ion_handle *handle)
+static int _ion_free(int fd, int handle)
 {
         struct ion_handle_data data = {
                 .handle = handle,
@@ -86,8 +86,8 @@ static int _ion_free(int fd, struct ion_handle *handle)
         return ion_ioctl(fd, ION_IOC_FREE, &data);
 }
 
-static int ion_map(int fd, struct ion_handle *handle, size_t length, int prot,
-            int flags, off_t offset, unsigned char **ptr, int *map_fd)
+static int ion_map(int fd, int handle, size_t length, int prot,
+            int flags, off_t offset, void **ptr, int *map_fd)
 {
         struct ion_fd_data data = {
                 .handle = handle,
@@ -109,7 +109,7 @@ static int ion_map(int fd, struct ion_handle *handle, size_t length, int prot,
         return ret;
 }
 
-static int ion_share(int fd, struct ion_handle *handle, int *share_fd)
+static int ion_share(int fd, int handle, int *share_fd)
 {
         struct ion_fd_data data = {
                 .handle = handle,
@@ -128,7 +128,7 @@ static int ion_share(int fd, struct ion_handle *handle, int *share_fd)
 
 static int ion_alloc_fd(int fd, size_t len, size_t align, unsigned int heap_mask,
 		 unsigned int flags, int *handle_fd) {
-	struct ion_handle *handle;
+	int handle;
 	int ret;
 
 	ret = ion_alloc(fd, len, align, heap_mask, flags, &handle);
@@ -139,7 +139,7 @@ static int ion_alloc_fd(int fd, size_t len, size_t align, unsigned int heap_mask
 	return ret;
 }
 
-static int ion_import(int fd, int share_fd, struct ion_handle **handle)
+static int ion_import(int fd, int share_fd, int *handle)
 {
         struct ion_fd_data data = {
                 .fd = share_fd,
@@ -160,29 +160,29 @@ static int ion_sync_fd(int fd, int handle_fd)
     return ion_ioctl(fd, ION_IOC_SYNC, &data);
 }
 
-struct mem_handle_mrvl* ion_malloc(int size)
+struct mem_handle_phycontmem* ion_malloc(int size)
 {
-	struct mem_handle_mrvl* mem;
+	struct mem_handle_phycontmem* mem;
 	struct ion_custom_data data;
-	struct mmp_ion_cont_alloc_data alloc_data;
+	struct insecure_uapi_ion_cont_alloc_data alloc_data;
 	int rlt = 0;
 
 	LOGI("%s() calling, sz %d\n", __FUNCTION__, size);
 
-	mem = (struct mem_handle_mrvl*)malloc( sizeof(struct mem_handle_mrvl) );
+	mem = (struct mem_handle_phycontmem*)malloc( sizeof(struct mem_handle_phycontmem) );
 	if( NULL == mem ) {
 		mem_helper_echo("malloc in %s(line %d) fail\n", __FUNCTION__, __LINE__);
 		return NULL;
 	}
 
-	memset( mem, 0, sizeof(struct mem_handle_mrvl) );
+	memset( mem, 0, sizeof(struct mem_handle_phycontmem) );
 	mem->fd = ion_open();
 	if( mem->fd < 0 ) {
 		mem_helper_echo("open in %s(line %d) fail, ret fd %d\n", __FUNCTION__, __LINE__, mem->fd);
 		goto mem_malloc_fail0;
 	}
 
-	rlt = ion_alloc(mem->fd, (size_t)size, 0, ION_HEAP_SYSTEM_CONTIG_MASK, 0, &mem->handle);
+	rlt = ion_alloc(mem->fd, (size_t)size, 0, ION_HEAP_SYSTEM_CONTIG_MASK, ION_FLAG_INSECURE, &mem->handle);
 	if( rlt < 0 ) {
 		mem_helper_echo("ion_alloc in %s(line %d) fail, ret %d\n", __FUNCTION__, __LINE__, rlt);
 		goto mem_malloc_fail1;
@@ -197,9 +197,9 @@ struct mem_handle_mrvl* ion_malloc(int size)
 
 	mem->size = size;
 
-	data.cmd = MMP_ION_GET_PHYS;
+	data.cmd = INSECURE_UAPI_ION_GET_PHYS;
 	alloc_data.len = size;
-	alloc_data.handle = mem->handle;
+	alloc_data.dma_buf = mem->map_fd;
 	data.arg = (unsigned long int)&alloc_data;
 	
 	rlt = ioctl(mem->fd, ION_IOC_CUSTOM, (unsigned long)&data);
@@ -227,7 +227,7 @@ mem_malloc_fail0:
 	return NULL;
 }
 
-int ion_free(struct mem_handle_mrvl* handle)
+int ion_free(struct mem_handle_phycontmem* handle)
 {
 	LOGI("%s() calling, handle 0x%08x\n", __FUNCTION__, (unsigned int)handle);
 	if(handle == NULL) {
@@ -248,4 +248,3 @@ int ion_free(struct mem_handle_mrvl* handle)
 void ion_flush_cache(int mem_fd, unsigned long offset, unsigned long size, int dir)
 {
 }
-

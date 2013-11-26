@@ -34,21 +34,21 @@
 #define mem_helper_echo(...)
 #endif
 
-struct mem_handle_mrvl* pmem_malloc(int size)
+struct mem_handle_phycontmem* pmem_malloc(int size)
 {
-	struct mem_handle_mrvl* mem;
+	struct mem_handle_phycontmem* mem;
 	struct pmem_region pr;
 	int rlt = 0;
 
 	LOGI("%s() calling, sz %d\n", __FUNCTION__, size);
 
-	mem = (struct mem_handle_mrvl*)malloc( sizeof(struct mem_handle_mrvl) );
+	mem = (struct mem_handle_phycontmem*)malloc( sizeof(struct mem_handle_phycontmem) );
 	if( NULL == mem ) {
 		mem_helper_echo("malloc in %s(line %d) fail\n", __FUNCTION__, __LINE__);
 		return NULL;
 	}
 
-	memset( mem, 0, sizeof(struct mem_handle_mrvl) );
+	memset( mem, 0, sizeof(struct mem_handle_phycontmem) );
 	mem->fd = open( MARVELL_MEMDEV_NAME_NONCACHED, O_RDWR );
 	if( mem->fd < 0 ) {
 		mem_helper_echo("open in %s(line %d) fail, ret fd %d\n", __FUNCTION__, __LINE__, mem->fd);
@@ -84,7 +84,7 @@ mem_malloc_fail0:
 	return NULL;
 }
 
-int pmem_free(struct mem_handle_mrvl* handle)
+int pmem_free(struct mem_handle_phycontmem* handle)
 {
 	LOGI("%s() calling, handle 0x%08x\n", __FUNCTION__, (unsigned int)handle);
 	if(handle == NULL) {

@@ -6,17 +6,16 @@
 #ifndef __PHYCM_INTERNAL_H__
 #define __PHYCM_INTERNAL_H__
 
-struct mem_handle_mrvl
+
+struct mem_handle_phycontmem
 {
 	int fd;
 	int map_fd;
 	unsigned int size;
 	void* va;
 	void* pa;
-	struct ion_handle* handle;
+	int handle;
 };
-
-typedef struct mem_handle_mrvl MEM_HANDLE_MRVL;
 
 #define MEM_FLUSH_BIDIRECTION		0
 #define MEM_FLUSH_TO_DEVICE		1
